@@ -1,6 +1,5 @@
 package com.example.froggydash;
 
-import androidx.annotation.NonNull;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 
@@ -14,10 +13,6 @@ import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
-import com.google.android.gms.tasks.OnCompleteListener;
-import com.google.android.gms.tasks.Task;
-import com.google.android.material.textfield.TextInputLayout;
-import com.google.firebase.auth.AuthResult;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.database.DataSnapshot;
@@ -26,7 +21,6 @@ import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.database.ValueEventListener;
 
-import java.lang.reflect.Array;
 import java.util.Map;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
@@ -34,6 +28,7 @@ import java.util.function.Consumer;
 public class MainActivity extends AppCompatActivity {
     TextView textView;
     Button loginLogoutButton;
+    LinearLayout treeRootLayout;
     FirebaseAuth auth;
     FirebaseUser user;
     FirebaseDatabase database;
@@ -45,8 +40,9 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
 
         loginLogoutButton = findViewById(R.id.loginLogoutButton);
-        loginLogoutButton.setOnClickListener(this::onLoginLogoutButtonClick);
         textView = findViewById(R.id.textView);
+        treeRootLayout = findViewById(R.id.treeRootLayout);
+        loginLogoutButton.setOnClickListener(this::onLoginLogoutButtonClick);
         textView.setMovementMethod(new ScrollingMovementMethod());
 
         database = FirebaseDatabase.getInstance();
@@ -72,12 +68,16 @@ public class MainActivity extends AppCompatActivity {
             loginLogoutButton.setText("Log out");
             subscribe("/users/" + user.getUid(), dbUser -> {
                 log("loaded user", user.getUid());
+                LinearLayout userView = spawnButton("User " + user.getUid(), treeRootLayout);
                 subscribeChilds(dbUser, "multifrogs", multifrog -> {
                     log("loaded multifrog", multifrog.getKey());
+                    LinearLayout miltiView = spawnButton("Multifrog " + multifrog.getKey(), userView);
                     subscribeChilds(multifrog, "frogs", frog -> {
                         log("loaded frog", frog.getKey());
+                        LinearLayout frogView = spawnButton("Frog " + frog.getKey(), miltiView);
                         subscribeChilds(frog, "sensors", sensor -> {
                             log("loaded sensor", sensor.getKey());
+                            spawnButton("Sensor " + sensor.getKey(), frogView);
                         });
                         subscribeChilds(frog, "sensors", "readings", readings -> {
                             int count = ((Map<String,String>)readings.getValue()).size();
@@ -86,6 +86,9 @@ public class MainActivity extends AppCompatActivity {
                     });
                 });
             });
+
+
+
         }
     }
 
@@ -108,6 +111,29 @@ public class MainActivity extends AppCompatActivity {
         textView.append("> ");
         textView.append(arg == null ? "null" : arg.toString());
         textView.append("\n");
+    }
+
+    LinearLayout spawnButton(String text, LinearLayout root) {
+        LinearLayout layout = new LinearLayout(this);
+        layout.setOrientation(LinearLayout.VERTICAL);
+
+        LinearLayout children = new LinearLayout(this);
+        children.setPadding(50, 0,0,0);
+        children.setOrientation(LinearLayout.VERTICAL);
+
+        Button button = new Button(this);
+        button.setText(text);
+        button.setOnClickListener(view -> {
+            if (children.getVisibility() == View.VISIBLE)
+                children.setVisibility(View.GONE);
+            else
+                children.setVisibility(View.VISIBLE);
+        });
+
+        layout.addView(button);
+        layout.addView(children);
+        root.addView(layout);
+        return children;
     }
 
     void requestEmailAndPassword(BiConsumer<String,String> callback) {
