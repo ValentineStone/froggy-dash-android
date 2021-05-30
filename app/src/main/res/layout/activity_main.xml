@@ -10,7 +10,7 @@
     <TextView
         android:id="@+id/textView"
         android:layout_width="0dp"
-        android:layout_height="0dp"
+        android:layout_height="200dp"
         android:background="#303030"
         android:fontFamily="monospace"
         android:gravity="bottom"

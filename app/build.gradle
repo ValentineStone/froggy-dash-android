@@ -9,7 +9,7 @@ android {
 
     defaultConfig {
         applicationId "com.example.froggydash"
-        minSdkVersion 23
+        minSdkVersion 26
         targetSdkVersion 30
         versionCode 1
         versionName "1.0"
@@ -42,4 +42,6 @@ dependencies {
     implementation 'com.google.firebase:firebase-analytics'
     implementation 'com.google.firebase:firebase-database'
     implementation 'com.google.firebase:firebase-auth'
+
+    implementation 'com.jjoe64:graphview:4.2.2'
 }
