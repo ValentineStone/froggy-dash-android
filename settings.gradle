@@ -1,0 +1,2 @@
+rootProject.name = "Froggy Dash"
+include ':app'
