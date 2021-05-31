@@ -26,14 +26,13 @@ import com.jjoe64.graphview.GraphView;
 import com.jjoe64.graphview.series.DataPoint;
 import com.jjoe64.graphview.series.LineGraphSeries;
 
-import java.lang.ref.Reference;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.TreeMap;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.BiConsumer;
-import java.util.function.Function;
+//import java.util.function.BiConsumer;
+//import java.util.function.Function;
 
 public class MainActivity extends AppCompatActivity {
     TextView textView;
@@ -89,8 +88,8 @@ public class MainActivity extends AppCompatActivity {
                                 LinearLayout frogView = spawnButton("Frog " + frog.getKey(), miltiView);
                                 Map<String,Object> sensorsMap = (Map<String,Object>)frog.child("sensors").getValue();
                                 Map<String,LinearLayout> sensorViewsMap = new HashMap<>();
-                                sensorsMap.keySet().forEach(uuid -> sensorViewsMap.put(uuid,
-                                    spawnButton("Sensor " + uuid, frogView, true)));
+                                for (String uuid : sensorsMap.keySet())
+                                    sensorViewsMap.put(uuid, spawnButton("Sensor " + uuid, frogView, true));
                                 return chain(
                                     () -> miltiView.removeView((View)frogView.getParent()),
                                     subscribeChilds(frog, "sensors", sensor -> {
@@ -102,20 +101,8 @@ public class MainActivity extends AppCompatActivity {
                                     }),
                                     subscribeChilds(frog, "sensors", "readings", readings -> {
                                         Map<String,Long> readingsMap = (Map<String,Long>)readings.getValue();
-                                        ArrayList<Long> readingValues = new ArrayList<>(new TreeMap<>(readingsMap).values());
-                                        int count = readingValues.size();
-                                        log("loaded " + count + " readings for", readings.getKey());
-
-                                        int drawStart = Math.max(count - 9, 0);
-                                        int drawCount = count - drawStart;
-                                        DataPoint[] points = new DataPoint[drawCount];
-                                        for (int i = 0; i < drawCount; i++)
-                                            points[i] = new DataPoint(i, readingValues.get(drawStart + i));
-                                        GraphView graph = new GraphView(this);
-                                        graph.setVisibility(View.VISIBLE);
-                                        LineGraphSeries<DataPoint> series = new LineGraphSeries<>(points);
-                                        graph.addSeries(series);
-                                        graph.setLayoutParams(new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 500));
+                                        log("loaded " + readingsMap.size() + " readings for", readings.getKey());
+                                        GraphView graph = spawnGraph(readingsMap);
                                         sensorViewsMap.get(readings.getKey()).addView(graph);
                                         return () -> sensorViewsMap.get(readings.getKey()).removeView(graph);
                                     })
@@ -137,9 +124,13 @@ public class MainActivity extends AppCompatActivity {
 
     // actions
 
-    void log(String ...args) {
+    void log(String arg, String ...args) {
         textView.append("> ");
-        textView.append(String.join(" ", args));
+        textView.append(arg);
+        for (String more: args) {
+            textView.append(" ");
+            textView.append(more);
+        }
         textView.append("\n");
     }
 
@@ -168,6 +159,21 @@ public class MainActivity extends AppCompatActivity {
         return children;
     }
 
+    GraphView spawnGraph(Map<String,Long> readingsMap) {
+        ArrayList<Long> readingValues = new ArrayList<>(new TreeMap<>(readingsMap).values());
+        int count = readingValues.size();
+        int drawStart = Math.max(count - 9, 0);
+        int drawCount = count - drawStart;
+        DataPoint[] points = new DataPoint[drawCount];
+        for (int i = 0; i < drawCount; i++)
+            points[i] = new DataPoint(i, readingValues.get(drawStart + i));
+        GraphView graph = new GraphView(this);
+        graph.setLayoutParams(new ViewGroup.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT, 500));
+        graph.addSeries(new LineGraphSeries<>(points));
+        return graph;
+    }
+
     LinearLayout spawnButton(String text, LinearLayout root) {
         return spawnButton(text, root, false);
     }
@@ -182,24 +188,24 @@ public class MainActivity extends AppCompatActivity {
         passwordInput.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD);
         loginLayout.addView(emailInput);
         loginLayout.addView(passwordInput);
-        AlertDialog.Builder builder = new AlertDialog.Builder(this)
-                .setTitle("Log in")
-                .setView(loginLayout)
-                .setPositiveButton("OK", (DialogInterface dialog, int which) ->
-                    callback.accept(emailInput.getText().toString(), passwordInput.getText().toString()))
-                .setNegativeButton("Cancel", (DialogInterface dialog, int which) ->
-                    dialog.cancel());
-        builder.show();
+        new AlertDialog.Builder(this)
+            .setTitle("Log in")
+            .setView(loginLayout)
+            .setPositiveButton("OK", (DialogInterface dialog, int which) ->
+                callback.accept(emailInput.getText().toString(), passwordInput.getText().toString()))
+            .setNegativeButton("Cancel", (DialogInterface dialog, int which) ->
+                dialog.cancel())
+            .show();
     }
 
     void requestLogoutConfirmation(Runnable runable) {
-        AlertDialog.Builder builder = new AlertDialog.Builder(this)
-                .setTitle("Are you sure you want ot log out?")
-                .setPositiveButton("OK", (DialogInterface dialog, int which) ->
-                        runable.run())
-                .setNegativeButton("Cancel", (DialogInterface dialog, int which) ->
-                        dialog.cancel());
-        builder.show();
+        new AlertDialog.Builder(this)
+            .setTitle("Are you sure you want ot log out?")
+            .setPositiveButton("OK", (DialogInterface dialog, int which) ->
+                runable.run())
+            .setNegativeButton("Cancel", (DialogInterface dialog, int which) ->
+                dialog.cancel())
+            .show();
     }
 
     // Firebase helper functions
@@ -221,12 +227,12 @@ public class MainActivity extends AppCompatActivity {
             }
             @Override
             public void onCancelled(DatabaseError error) {
-                //log("error subscribing to:", path, error.toString());
+                //log("error subscribing to", path, error.toString());
             }
         };
         ref.addValueEventListener(listener);
         return () -> {
-            log("unsubscribed from", path, "from db...");
+            log("unsubscribed from", path);
             ref.removeEventListener(listener);
             if (uneffect.get() != null) uneffect.get().run();
             uneffect.set(null);
@@ -245,4 +251,12 @@ public class MainActivity extends AppCompatActivity {
             unsubs[i++] = subscribe("/" + rootPath + "/" + uuid, callback);
         return chain(unsubs);
     }
+}
+
+interface BiConsumer<U,T> {
+    public void accept(U u, T t);
+}
+
+interface Function<U, R> {
+    public R apply(U u);
 }
